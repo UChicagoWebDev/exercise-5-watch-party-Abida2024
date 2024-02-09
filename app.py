@@ -20,7 +20,6 @@ def add_header(response):
     return response
 
 
-
 def get_db():
     db = getattr(g, '_database', None)
 
@@ -56,7 +55,7 @@ def new_user():
     password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
     api_key = ''.join(random.choices(string.ascii_lowercase + string.digits, k=40))
     u = query_db('insert into users (name, password, api_key) ' + 
-        'values (?, ?, ?) returning id, name, password, api_key',
+        'values (?, ?, ?) RETURNING id, name, password, api_key',
         (name, password, api_key),
         one=True)
     return u
@@ -143,13 +142,14 @@ def login():
         return redirect('/')
     
     if request.method == 'POST':
-        name = request.form['name']
-        password = request.form['name']
+        # Add a github issue 
+        name = request.form['username']
+        password = request.form['password']
         u = query_db('select * from users where name = ? and password = ?', [name, password], one=True)
-        if user:
+        if u:
             resp = make_response(redirect("/"))
-            resp.set_cookie('user_id', u.id)
-            resp.set_cookie('user_password', u.password)
+            resp.set_cookie('user_id', str(u['id']))
+            resp.set_cookie('user_password', u['password'])
             return resp
 
     return render_with_error_handling('login.html', failed=True)   
@@ -173,14 +173,95 @@ def room(room_id):
 # -------------------------------- API ROUTES ----------------------------------
 
 # POST to change the user's name
-@app.route('/api/user/name')
+@app.route('/api/user/changename', methods = ['POST'])
 def update_username():
-    return {}, 403
+    if not validate_api_key(request):
+        return {}, 404
+    u = get_user_from_cookie(request)
+    print(u)
+    data = request.json 
+    user_id = u['id']
+    new_username = data['username']
+    resp = query_db('update users set name=? where id=? returning name''', [new_username, user_id], one=True)
+    return {"username": resp['name']}, 200
 
 # POST to change the user's password
+@app.route('/api/user/changepassword', methods = ['POST'])
+def update_password():
+    print("updating password!")
+    if not validate_api_key(request):
+        return {}, 404
+    u = get_user_from_cookie(request)
+    print(u)
+    data = request.json 
+    user_id = u['id']
+    new_password = data['password']
+    resp = query_db('update users set password=? where id=? returning password', [new_password, user_id], one=True)
+    # NOTE: Do I need to update the cookie as well?
+    # resp_profile = redirect('/profile')
+    # resp_profile.delete_cookie('user_password')
+    # resp_profile.set_cookie('user_password', new_password)
+    return {"password": resp['password']}, 200
 
 # POST to change the name of a room
+@app.route('/api/room/namechange', methods = ['POST'])
+def update_room():
+    if not validate_api_key(request):
+        return {}, 404
+    data = request.json 
+    room_id = data['room_id']
+    room_name = data['room_name']
+    resp = query_db('update rooms set name=? where id=? returning name', [room_name, room_id], one=True)
+    return {"room_name": resp['name']}, 200
 
 # GET to get all the messages in a room
+@app.route('/retrieve_messages/<int:room_id>', methods=['GET'])
+def retrieve_room_messages(room_id):
+    # Assuming that the messages are returned in chronological order
+    print("Getting messages!")
+    if not validate_api_key(request):
+        return {}, 404
+    messages = query_db('select name, body from messages LEFT JOIN users on messages.user_id=users.id WHERE messages.room_id=?', 
+    [room_id],
+    one=False)
+    if messages is None:
+        return {}, 200
 
+    all_messages = []
+    for message in messages:
+        all_messages.append(
+            {
+                'user_id': message['name'],
+                'body': message['body']
+            }
+        )
+    return jsonify(all_messages), 200
+    
 # POST to post a new message to a room
+@app.route('/post_messages', methods=['POST'])
+def post_message():
+    print("Posting Message!")
+    if not validate_api_key(request):
+        return {}, 404
+    u = get_user_from_cookie(request)
+    user_id = u['id']
+    # Validate that the users API key is valid
+    data = request.json
+    room_id = int(data['roomid'])
+    body = data['postbody']
+    
+    added_post = query_db('insert into messages (user_id, room_id, body) ' + 
+        'values (?, ?, ?) RETURNING id, user_id, room_id, body',
+        [user_id, room_id, body],
+        one=True)
+    
+    return {}, 200
+
+# API endpoints require a valid API key in the request header.
+def validate_api_key(request):
+    api_key = request.headers['API-KEY']
+    # check that the api key exists
+    resp = query_db('select * from users where api_key=?',[api_key],one=True)
+    if resp['api_key'] == api_key:
+        return True
+    return False
