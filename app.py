@@ -63,8 +63,9 @@ def new_user():
 def get_user_from_cookie(request):
     user_id = request.cookies.get('user_id')
     password = request.cookies.get('user_password')
+    api_key = request.cookies.get('user_api_key')
     if user_id and password:
-        return query_db('select * from users where id = ? and password = ?', [user_id, password], one=True)
+        return query_db('select * from users where id = ? and (password = ? or api_key = ?)', [user_id, password, api_key], one=True)
     return None
 
 def render_with_error_handling(template, **kwargs):
@@ -119,6 +120,7 @@ def signup():
         resp = redirect('/profile')
         resp.set_cookie('user_id', str(u['id']))
         resp.set_cookie('user_password', u['password'])
+        resp.set_cookie('user_api_key', u['api_key'])
         return resp
     
     return redirect('/login')
@@ -150,6 +152,7 @@ def login():
             resp = make_response(redirect("/"))
             resp.set_cookie('user_id', str(u['id']))
             resp.set_cookie('user_password', u['password'])
+            resp.set_cookie('user_api_key', u['api_key'])
             return resp
 
     return render_with_error_handling('login.html', failed=True)   
@@ -159,6 +162,7 @@ def logout():
     resp = make_response(redirect('/'))
     resp.set_cookie('user_id', '')
     resp.set_cookie('user_password', '')
+    resp.set_cookie('user_api_key', '')
     return resp
 
 @app.route('/rooms/<int:room_id>')
@@ -182,6 +186,7 @@ def update_username():
     data = request.json 
     user_id = u['id']
     new_username = data['username']
+    # The user name has to be unique 
     resp = query_db('update users set name=? where id=? returning name''', [new_username, user_id], one=True)
     return {"username": resp['name']}, 200
 
@@ -197,10 +202,6 @@ def update_password():
     user_id = u['id']
     new_password = data['password']
     resp = query_db('update users set password=? where id=? returning password', [new_password, user_id], one=True)
-    # NOTE: Do I need to update the cookie as well?
-    # resp_profile = redirect('/profile')
-    # resp_profile.delete_cookie('user_password')
-    # resp_profile.set_cookie('user_password', new_password)
     return {"password": resp['password']}, 200
 
 # POST to change the name of a room
