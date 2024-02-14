@@ -13,7 +13,7 @@ function postMessage(event) {
   event.preventDefault();
   let postContent = document.querySelector("textarea").value;
   let room_id = document.URL.split("/").pop().slice(0, 1);
-  let url = "http://localhost:5000/post_messages";
+  let url = "/api/post_messages";
   let data = {
     roomid: room_id,
     postbody: postContent,
@@ -51,7 +51,9 @@ function insertMessages(messages) {
 
 function getMessages() {
   let room_id = document.URL.split("/").pop().slice(0, 1);
-  const url = `http://localhost:5000/retrieve_messages/${room_id}`;
+  console.log(room_id);
+  console.log("getting Mesages");
+  const url = `/api/retrieve_messages/${room_id}`;
   fetch(url, {
     method: "GET",
     headers: {
@@ -65,20 +67,20 @@ function getMessages() {
 
 function startMessagePolling() {
   /* Clear the sample method upon loading the page */
+  console.log("startMessagePolling");
   let messages_div = document.body.querySelector(".messages");
   messages_div.replaceChildren();
 
   /* Get the messages every 100 ms and add
   any new messages to the chat history */
   setInterval(getMessages, 100);
-
   return;
 }
 
 /* Additional functions to update username */
 function updateUsername() {
   let update_username = document.querySelector("input.username").value;
-  let url = "http://localhost:5000/api/user/changename";
+  let url = "/api/user/changename";
   let data = {
     username: update_username,
   };
@@ -94,7 +96,7 @@ function updateUsername() {
 
 function updatePassword() {
   let update_password = document.querySelector("input.password").value;
-  let url = "http://localhost:5000/api/user/changepassword";
+  let url = "/api/user/changepassword";
   let data = {
     password: update_password,
   };
@@ -109,7 +111,7 @@ function updatePassword() {
 }
 
 function editRoomname() {
-  let url = "http://localhost:5000/api/room/namechange";
+  let url = "/api/room/namechange";
   let room_id = document.URL.split("/").pop().slice(0, 1);
   let room_name = document.querySelector(".roomData input").value;
   let data = {

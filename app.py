@@ -216,7 +216,7 @@ def update_room():
     return {"room_name": resp['name']}, 200
 
 # GET to get all the messages in a room
-@app.route('/retrieve_messages/<int:room_id>', methods=['GET'])
+@app.route('/api/retrieve_messages/<int:room_id>', methods=['GET'])
 def retrieve_room_messages(room_id):
     # Assuming that the messages are returned in chronological order
     print("Getting messages!")
@@ -239,7 +239,7 @@ def retrieve_room_messages(room_id):
     return jsonify(all_messages), 200
     
 # POST to post a new message to a room
-@app.route('/post_messages', methods=['POST'])
+@app.route('/api/post_messages', methods=['POST'])
 def post_message():
     print("Posting Message!")
     if not validate_api_key(request):
